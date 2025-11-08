@@ -2,6 +2,8 @@
 
 一个可复用的图片/视频资源中心的 React 组件库，支持 ImageKit 列表、上传、选择、多选确认、预览（图片与视频），并可在弹窗中使用。
 
+[English README](./README.en.md)
+
 ## 安装
 
 ```bash
@@ -68,19 +70,6 @@ interface ImageKitFile {
   size: number
   createdAt: string
 }
-```
-
-## 最佳实践
-
-- 请不要在前端代码中硬编码 `privateKey`，应使用环境变量或服务端代理安全注入。
-- 视频条目的缩略图显示优先使用 `thumbnailUrl`，若无则使用占位图与播放图标。双击列表项可预览并播放视频。
-- 若需要扩展多文件上传与上传前预览，可在外部组合使用。
-
-## 构建与发布
-
-```bash
-pnpm build:lib
-npm publish --access public
 ```
 
 ## 环境变量配置
