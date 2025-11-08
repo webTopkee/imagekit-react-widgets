@@ -1,10 +1,10 @@
 # imagekit-react-widgets
 
-一个可复用的图片/视频资源中心的 React 组件库，支持 ImageKit 列表、上传、选择、多选确认、预览（图片与视频），并可在弹窗中使用。
+A reusable React component library for an image/video resource center. It supports ImageKit file listing, upload, selection, multi-select confirmation, preview (images and videos), and can be used within a modal dialog.
 
-[English](./README.en.md)  [中文](./README.md)
+[English](./README.md)  [中文](./README.zh-CN.md)
 
-## 安装
+## Installation
 
 ```bash
 npm install imagekit-react-widgets
@@ -12,7 +12,7 @@ npm install imagekit-react-widgets
 pnpm add imagekit-react-widgets
 ```
 
-## 快速使用
+## Quick Start
 
 ```tsx
 import { ResourceCenter } from 'imagekit-react-widgets'
@@ -22,7 +22,7 @@ function Demo() {
 
   return (
     <div>
-      <button onClick={() => setOpen(true)}>打开资源中心</button>
+      <button onClick={() => setOpen(true)}>Open Resource Center</button>
       <ResourceCenter
         open={open}
         onOpenChange={setOpen}
@@ -30,7 +30,7 @@ function Demo() {
         uploadEndpoint="https://upload.imagekit.io/api/v1/files/upload"
         privateKey={process.env.IMAGEKIT_PRIVATE_KEY!}
         onConfirm={(files) => {
-          console.log('已选择', files)
+          console.log('Selected', files)
         }}
       />
     </div>
@@ -38,26 +38,26 @@ function Demo() {
 }
 ```
 
-## API 文档
+## API
 
-- `open`: 是否打开弹窗，默认 `false`
-- `onOpenChange(open)`: 弹窗开关回调
-- `onConfirm(files)`: 选择确认回调，返回 `ImageKitFile[]`
-- `onError(message)`: 错误回调
-- `listEndpoint`: ImageKit 列表接口，例如 `https://api.imagekit.io/v1/files`
-- `uploadEndpoint`: ImageKit 上传接口，例如 `https://upload.imagekit.io/api/v1/files/upload`
-- `privateKey`: ImageKit 私钥（Basic Auth），请通过安全方式注入
-- `uploadFolder?`: 上传目标目录，例如 `/assets`
-- `uploadTags?`: 上传时附加标签数组
-- `maxFileSize?`: 最大文件大小（默认 10MB）
-- `allowedTypes?`: 允许的 MIME 类型（默认仅图片）
-- `allowedExts?`: 允许的扩展名（默认仅图片）
-- `enableDelete?`: 是否显示删除操作，默认 `true`
-- `enableUpload?`: 是否允许上传，默认 `true`
-- `multiSelect?`: 是否允许多选，默认 `true`
-- `theme?`: 主题，可选 `light | dark`（目前主要样式为 light）
+- `open`: whether the modal is open, default `false`
+- `onOpenChange(open)`: callback when modal open state changes
+- `onConfirm(files)`: selection confirmation callback, returns `ImageKitFile[]`
+- `onError(message)`: error callback
+- `listEndpoint`: ImageKit list endpoint, e.g. `https://api.imagekit.io/v1/files`
+- `uploadEndpoint`: ImageKit upload endpoint, e.g. `https://upload.imagekit.io/api/v1/files/upload`
+- `privateKey`: ImageKit private key (Basic Auth). Inject via secure mechanisms
+- `uploadFolder?`: upload target directory, e.g. `/assets`
+- `uploadTags?`: array of tags to attach on upload
+- `maxFileSize?`: max file size (default 10MB)
+- `allowedTypes?`: allowed MIME types (default images only)
+- `allowedExts?`: allowed file extensions (default images only)
+- `enableDelete?`: whether to show delete action, default `true`
+- `enableUpload?`: whether upload is allowed, default `true`
+- `multiSelect?`: whether multi-select is allowed, default `true`
+- `theme?`: theme, `light | dark` (currently mainly light styles)
 
-### ImageKitFile 类型
+### ImageKitFile Type
 
 ```ts
 interface ImageKitFile {
@@ -72,16 +72,16 @@ interface ImageKitFile {
 }
 ```
 
-## 环境变量配置
+## Environment Variables
 
-在项目根目录创建 `.env` 文件并设置：
+Create a `.env` file at the project root and set:
 
 ```
 VITE_IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key_here
 ```
 
-注意：不要提交真实私钥到版本库，建议根据 `.env.example` 模板配置本地环境或在部署平台上设置环境变量。
+Note: Do not commit real private keys to version control. Use `.env.example` as a template for local development, or set environment variables on your deployment platform.
 
-## 变更日志
+## Changelog
 
-详见 `CHANGELOG.md`
+See `CHANGELOG.md`
