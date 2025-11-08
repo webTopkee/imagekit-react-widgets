@@ -1,0 +1,13 @@
+# Exclude dev-only files
+.vercel/
+node_modules/
+pnpm-lock.yaml
+vite.config.ts
+tailwind.config.js
+postcss.config.js
+.gitignore
+src/pages/
+public/
+index.html
+eslint.config.js
+README-dev.md

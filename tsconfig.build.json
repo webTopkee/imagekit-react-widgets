@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "noEmit": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/index.ts",
+    "src/lib/**/*.ts",
+    "src/lib/**/*.tsx"
+  ],
+  "exclude": [
+    "src/pages/**"
+  ]
+}
