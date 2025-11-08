@@ -2,7 +2,7 @@
 
 一个可复用的图片/视频资源中心的 React 组件库，支持 ImageKit 列表、上传、选择、多选确认、预览（图片与视频），并可在弹窗中使用。
 
-[English README](./README.en.md)
+[English](./README.en.md)  [中文](./README.md)
 
 ## 安装
 

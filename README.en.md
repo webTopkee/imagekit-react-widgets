@@ -2,7 +2,7 @@
 
 A reusable React component library for an image/video resource center. It supports ImageKit file listing, upload, selection, multi-select confirmation, preview (images and videos), and can be used within a modal dialog.
 
-[中文 README](./README.md)
+[English](./README.en.md)  [中文](./README.md)
 
 ## Installation
 
