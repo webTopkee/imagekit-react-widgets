@@ -4,18 +4,35 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   build: {
     sourcemap: 'hidden',
+    lib: {
+      entry: 'src/index.ts',
+      name: 'ImageKitReactWidgets',
+      fileName: 'index',
+      formats: ['es']
+    },
+    rollupOptions: {
+      external: ['react', 'react-dom', 'react/jsx-runtime', 'zustand'],
+      output: {
+        globals: {
+          react: 'React',
+          'react-dom': 'ReactDOM'
+        }
+      }
+    }
   },
   plugins: [
-    react({
-      babel: {
-        plugins: [
-          'react-dev-locator',
-        ],
-      },
-    }),
+    react(
+      mode === 'development'
+        ? {
+            babel: {
+              plugins: ['react-dev-locator'],
+            },
+          }
+        : {}
+    ),
     traeBadgePlugin({
       variant: 'dark',
       position: 'bottom-right',
@@ -27,4 +44,4 @@ export default defineConfig({
     }), 
     tsconfigPaths()
   ],
-})
+}))

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { X, Loader2, MoreVertical, Copy, Trash2, ExternalLink, Check, PlayCircle } from 'lucide-react'
+import { X, Loader2, MoreVertical, Copy, Trash2, ExternalLink, Check, PlayCircle, LinkIcon } from './icons'
 import type { ImageKitFile, ResourceCenterProps } from './types'
 
 const DEFAULT_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp']
@@ -18,29 +18,40 @@ function getExtLower(name: string, url?: string) {
 }
 function isVideoExt(ext: string) { return VIDEO_EXTS.includes(ext.toLowerCase()) }
 function isVideoFile(file: ImageKitFile) { return isVideoExt(getExtLower(file.name, file.url)) }
+function isImageExt(ext: string, allowed: string[]) { return allowed.includes(ext.toLowerCase()) }
+function isImageFile(file: ImageKitFile, allowed: string[]) { return isImageExt(getExtLower(file.name, file.url), allowed) }
 function formatFromName(name: string, url?: string) { const ext = getExtLower(name, url); return ext ? ext.toUpperCase() : 'FILE' }
 
-export const ResourceCenter: React.FC<ResourceCenterProps> = ({
-  open = false,
-  onOpenChange,
-  onConfirm,
-  onError,
-  listEndpoint,
-  uploadEndpoint,
-  privateKey,
-  uploadFolder = '',
-  uploadTags = [],
-  maxFileSize = 10 * 1024 * 1024,
-  allowedTypes = DEFAULT_ALLOWED_TYPES,
-  allowedExts = DEFAULT_ALLOWED_EXTS,
-  enableDelete = true,
-  enableUpload = true,
-  multiSelect = true,
-  theme = 'light'
-}) => {
+export const ResourceCenter: React.FC<ResourceCenterProps> = (props) => {
+  const {
+    open = false,
+    onOpenChange,
+    onConfirm,
+    onError,
+    listEndpoint,
+    folderPath,
+    uploadEndpoint,
+    privateKey,
+    uploadFolder,
+    uploadTags = [],
+    maxFileSize = 10 * 1024 * 1024,
+    allowedTypes = DEFAULT_ALLOWED_TYPES,
+    allowedExts = DEFAULT_ALLOWED_EXTS,
+    enableDelete = true,
+    enableUpload = true,
+    multiSelect = true,
+    theme = 'light',
+    title
+  } = props
+  // Default upload folder to folderPath when uploadFolder not explicitly provided
+  const isUploadFolderProvided = Object.prototype.hasOwnProperty.call(props, 'uploadFolder')
+  const effectiveUploadFolder = isUploadFolderProvided ? (uploadFolder || '') : (folderPath || '')
   const [images, setImages] = useState<ImageKitFile[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const pageSize = 30
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -50,20 +61,29 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [previewImage, setPreviewImage] = useState<ImageKitFile | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  // refs to support closing "more" dropdown on outside click
+  const activeMenuBtnRef = useRef<HTMLButtonElement | null>(null)
+  const activeDropdownRef = useRef<HTMLDivElement | null>(null)
+  // Upload modal states
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploadSelections, setUploadSelections] = useState<File[]>([])
+  const [uploadProgressMap, setUploadProgressMap] = useState<Record<string, number>>({})
+  const getFileKey = (file: File) => `${file.name}_${file.size}_${file.lastModified}`
 
-  const sortByCreatedAtDesc = (arr: ImageKitFile[]) =>
-    arr.slice().sort((a, b) => {
-      const ta = new Date(a.createdAt).getTime() || 0
-      const tb = new Date(b.createdAt).getTime() || 0
-      if (tb !== ta) return tb - ta
-      return a.fileId.localeCompare(b.fileId)
-    })
-
-  const fetchImages = async () => {
-    setLoading(true)
+  const fetchImages = async (append = false) => {
+    if (!append) setLoading(true)
+    else setLoadingMore(true)
     setError(null)
     try {
-      const response = await fetch(listEndpoint, {
+      const skip = append ? images.length : 0
+      // Build base list endpoint: default to ImageKit files API if not provided
+      const baseList = listEndpoint ?? 'https://api.imagekit.io/v1/files'
+      // If folderPath provided, auto-append path filter unless endpoint already contains path=
+      const sepBase = baseList.includes('?') ? '&' : '?'
+      const hasPathParam = /[?&]path=/.test(baseList)
+      const pathPart = folderPath && !hasPathParam ? `path=${encodeURIComponent(folderPath)}&` : ''
+      const url = `${baseList}${sepBase}${pathPart}skip=${skip}&limit=${pageSize}&sort=DESC_CREATED`
+      const response = await fetch(url, {
         method: 'GET',
         headers: { 'Authorization': `Basic ${btoa(privateKey + ':')}`, 'Content-Type': 'application/json' }
       })
@@ -74,16 +94,31 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = ({
       }
       const res = await response.json()
       const files: ImageKitFile[] = (res.files || res) as ImageKitFile[]
-      setImages(sortByCreatedAtDesc(files))
+      if (append) {
+        setImages(prev => [...prev, ...files])
+      } else {
+        setImages(files)
+      }
+      setHasMore(files.length >= pageSize)
     } catch (err) {
       const msg = err instanceof Error ? err.message : '列表加载失败'
       setError(msg); onError?.(msg)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
-  useEffect(() => { if (open) fetchImages() }, [open])
+  useEffect(() => { if (open) { setImages([]); setHasMore(true); fetchImages(false) } }, [open])
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget
+    const { scrollTop, clientHeight, scrollHeight } = target
+    if (hasMore && !loadingMore && scrollTop + clientHeight >= scrollHeight - 10) {
+      fetchImages(true)
+    }
+  }
+  const loadMore = () => { if (hasMore && !loadingMore) fetchImages(true) }
 
   const toggleSelect = (id: string) => {
     if (!multiSelect) {
@@ -106,7 +141,10 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = ({
     const files = e.target.files
     if (!files || !files.length) return
     const fileList = Array.from(files)
-    uploadFiles(fileList)
+    setUploadSelections(prev => [...prev, ...fileList])
+    setShowUploadModal(true)
+    // reset input value to allow re-selecting the same files if needed
+    e.currentTarget.value = ''
   }
 
   const uploadFiles = async (files: File[]) => {
@@ -121,7 +159,7 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = ({
     formData.append('file', file)
     formData.append('fileName', file.name)
     formData.append('useUniqueFileName', 'true')
-    if (uploadFolder) formData.append('folder', uploadFolder)
+    if (effectiveUploadFolder) formData.append('folder', effectiveUploadFolder)
     if (uploadTags.length) formData.append('tags', uploadTags.join(','))
 
     setUploading(true); setUploadProgress(0); setError(null)
@@ -138,10 +176,77 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = ({
         try { const j = await response.json(); msg = j.message || msg } catch {}
         throw new Error(msg)
       }
-      await fetchImages()
+      await fetchImages(false)
     } catch (err) {
       const msg = err instanceof Error ? `上传失败：${err.message}` : '上传失败'
       setError(msg); onError?.(msg)
+      setUploading(false); setUploadProgress(0)
+    }
+  }
+
+  // batch upload using XMLHttpRequest to support per-file progress
+  const uploadFileXHR = (file: File) => new Promise<void>((resolve, reject) => {
+    const key = getFileKey(file)
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', uploadEndpoint, true)
+    xhr.setRequestHeader('Authorization', `Basic ${btoa(privateKey + ':')}`)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100)
+        setUploadProgressMap(prev => ({ ...prev, [key]: pct }))
+        // update aggregated progress in topbar
+        const vals = Object.values({ ...uploadProgressMap, [key]: pct })
+        const total = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : pct
+        setUploadProgress(total)
+      }
+    }
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState === 4) {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          setUploadProgressMap(prev => ({ ...prev, [key]: 100 }))
+          resolve()
+        } else {
+          let msg = '上传失败'
+          try { const j = JSON.parse(xhr.responseText); msg = j.message || msg } catch {}
+          reject(new Error(msg))
+        }
+      }
+    }
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('fileName', file.name)
+    formData.append('useUniqueFileName', 'true')
+    if (effectiveUploadFolder) formData.append('folder', effectiveUploadFolder)
+    if (uploadTags.length) formData.append('tags', uploadTags.join(','))
+    xhr.send(formData)
+  })
+
+  const removeSelection = (key: string) => {
+    setUploadSelections(prev => prev.filter(f => getFileKey(f) !== key))
+    setUploadProgressMap(prev => { const n = { ...prev }; delete n[key]; return n })
+  }
+
+  const startBatchUpload = async () => {
+    if (!uploadSelections.length) return
+    setUploading(true); setUploadProgress(0); setError(null)
+    try {
+      for (const file of uploadSelections) {
+        // basic validations per file
+        if (file.size > maxFileSize) { const msg = `文件过大：${file.name}`; setError(msg); onError?.(msg); continue }
+        if (!allowedTypes.includes(file.type)) { const msg = `不支持的文件类型：${file.name}`; setError(msg); onError?.(msg); continue }
+        const key = getFileKey(file)
+        setUploadProgressMap(prev => ({ ...prev, [key]: 0 }))
+        await uploadFileXHR(file)
+      }
+      // all done
+      setShowUploadModal(false)
+      setUploadSelections([])
+      setUploadProgressMap({})
+      await fetchImages(false)
+    } catch (err) {
+      const msg = err instanceof Error ? `上传失败：${err.message}` : '上传失败'
+      setError(msg); onError?.(msg)
+    } finally {
       setUploading(false); setUploadProgress(0)
     }
   }
@@ -169,7 +274,8 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = ({
     const confirmDelete = window.confirm('确认删除该文件？此操作不可恢复。')
     if (!confirmDelete) return
     try {
-      const resp = await fetch(`${listEndpoint}/${image.fileId}`, {
+      const delBase = (listEndpoint ?? 'https://api.imagekit.io/v1/files').split('?')[0]
+      const resp = await fetch(`${delBase}/${image.fileId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Basic ${btoa(privateKey + ':')}` }
       })
@@ -186,33 +292,128 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = ({
     }
   }
 
+  // close active menu when clicking anywhere outside of the active dropdown and its trigger button
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (!activeMenuId) return
+      const target = e.target as Node
+      const btnEl = activeMenuBtnRef.current
+      const ddEl = activeDropdownRef.current
+      if (ddEl && ddEl.contains(target)) return
+      if (btnEl && btnEl.contains(target)) return
+      setActiveMenuId(null)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => document.removeEventListener('mousedown', onDocMouseDown)
+  }, [activeMenuId])
+
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 bg-white z-50 overflow-hidden">
+    <div className="ik-modal">
+      {showUploadModal && (
+        <div className="ik-overlay-dark" onClick={() => setShowUploadModal(false)}>
+          <div className="ik-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="ik-modal-header">
+              <h2 className="ik-title">上传队列</h2>
+              <div className="ik-actions">
+                {uploading && (
+                  <div className="ik-loading-inline">
+                    <Loader2 className="ik-icon-spin" size={16} />
+                    <span>上传中{uploadProgress ? ` ${uploadProgress}%` : ''}</span>
+                  </div>
+                )}
+                <button className="ik-btn-close" aria-label="关闭上传窗口" onClick={() => setShowUploadModal(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="ik-modal-body">
+              <div className="ik-upload-list ik-scrollbar ik-scrollbar-thin">
+                {uploadSelections.length === 0 && (
+                  <div className="ik-empty">暂无选择的图片</div>
+                )}
+                {uploadSelections.map((f) => {
+                  const key = getFileKey(f)
+                  const pct = uploadProgressMap[key] ?? 0
+                  const url = URL.createObjectURL(f)
+                  return (
+                    <div className="ik-upload-item ik-card" key={key}>
+                      <img src={url} alt={f.name} className="ik-upload-thumb" />
+                      <div className="ik-upload-info">
+                        <div className="ik-upload-name">{f.name}</div>
+                        <div className="ik-upload-meta">{Math.round(f.size/1024)}KB</div>
+                        <div className="ik-upload-progress">
+                          <div className="ik-progress-track">
+                            <div className="ik-progress-bar" style={{ width: pct + '%' }} />
+                          </div>
+                        </div>
+                      </div>
+                      <button className="ik-btn" onClick={() => removeSelection(key)} disabled={uploading}>删除</button>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="ik-actions" style={{ marginTop: 12, justifyContent: 'flex-end' }}>
+                <button onClick={handleUploadClick} className="ik-btn">继续添加</button>
+                <button onClick={startBatchUpload} className="ik-btn-primary" disabled={!uploadSelections.length || uploading}>确定</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {previewImage && (
+        <div className="ik-overlay-dark" onClick={closePreview}>
+          <div className="ik-preview-box" onClick={(e) => e.stopPropagation()}>
+            <button className="ik-btn-close ik-preview-close" aria-label="关闭预览" onClick={closePreview}>
+              <X size={20} />
+            </button>
+            {isVideoFile(previewImage) ? (
+              previewImage.thumbnailUrl ? (
+                <img src={previewImage.thumbnailUrl} alt={previewImage.name} className="ik-preview-img" />
+              ) : (
+                <div className="ik-preview-placeholder">
+                  <PlayCircle size={42} />
+                  <span>该文件为视频</span>
+                </div>
+              )
+            ) : isImageFile(previewImage, allowedExts) ? (
+              <img src={previewImage.url} alt={previewImage.name} className="ik-preview-img" />
+            ) : (
+              <div className="ik-preview-placeholder">
+                <LinkIcon size={32} />
+                <span>该文件不可预览</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {/* 顶部导航栏 */}
-      <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-10 p-4">
-        <div className="flex justify-between items-center max-w-7xl mx-auto">
-          <h1 className="text-gray-900 text-2xl font-bold">资源中心</h1>
-          <div className="flex items-center gap-2">
+      <div className="ik-topbar">
+        <div className="ik-topbar-inner">
+          <h1 className="ik-title">{title ?? '资源中心'}</h1>
+          <div className="ik-actions">
             {uploading && (
-              <div className="flex items-center text-gray-700 text-sm mr-2">
-                <Loader2 className="animate-spin mr-1 text-gray-600" size={16} />
+              <div className="ik-loading-inline">
+                <Loader2 className="ik-icon-spin" size={16} />
                 <span>上传中{uploadProgress ? ` ${uploadProgress}%` : ''}</span>
               </div>
             )}
             {enableUpload && (
-              <button onClick={handleUploadClick} className="text-gray-700 border border-gray-300 hover:border-gray-400 px-3 py-1 rounded-md text-sm hover:bg-gray-50">上传</button>
+              <button onClick={handleUploadClick} className="ik-btn">上传</button>
             )}
             <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={onFileChange} />
-            <button onClick={() => onOpenChange?.(false)} className="text-gray-700 border border-gray-300 hover:border-gray-400 px-3 py-1 rounded-md text-sm hover:bg-gray-50">关闭</button>
+            <button onClick={() => onOpenChange?.(false)} className="ik-btn-close" aria-label="关闭">
+              <X size={20} />
+            </button>
           </div>
         </div>
       </div>
 
       {/* 内容区域 */}
       <div
-        className="pt-16 pb-24"
+        className={isDragging ? "ik-content ik-scrollbar ik-scrollbar-thin ik-drop-active" : "ik-content ik-scrollbar ik-scrollbar-thin"}
+        onScroll={handleScroll}
         onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true) }}
         onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false) }}
@@ -223,92 +424,78 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = ({
           if (imageFiles.length) uploadFiles(imageFiles)
         }}
       >
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="ik-container">
           {loading && (
-            <div className="text-gray-800 text-center">
-              <Loader2 className="animate-spin mx-auto mb-2 text-gray-600" />
+            <div className="ik-loading">
+              <Loader2 className="ik-icon-spin" />
               加载中...
             </div>
           )}
           {error && (
-            <div className="text-red-700 text-center">{error}</div>
+            <div className="ik-error">{error}</div>
           )}
           {!loading && !error && images.length === 0 && (
-            <div className="text-gray-700 text-center">暂无文件</div>
+            <div className="ik-empty">暂无文件</div>
           )}
 
           {!loading && !error && images.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div className="ik-grid">
               {images.map((image) => (
-                <div key={image.fileId} className="bg-white rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                  <div className="relative">
-                    <span className="absolute top-2 left-2 bg-black/60 text-white text-[10px] tracking-wide uppercase px-2 py-1 rounded">
+                <div key={image.fileId} className="ik-card">
+                  <div className="ik-card-header">
+                    <span className="ik-badge">
                       {formatFromName(image.name, image.url)}
                     </span>
                     {isVideoFile(image) ? (
                       image.thumbnailUrl ? (
-                        <img
-                          src={image.thumbnailUrl}
-                          alt={image.name}
-                          className={`w-full h-48 object-cover cursor-pointer transition-all duration-200 ${selectedIds.has(image.fileId) ? 'ring-2 ring-blue-400 shadow-lg' : 'shadow-md'}`}
-                          loading="lazy"
-                          onClick={() => toggleSelect(image.fileId)}
-                          onDoubleClick={() => openPreview(image)}
-                        />
+                        <img src={image.thumbnailUrl} alt={image.name} className={selectedIds.has(image.fileId) ? 'ik-thumb ik-thumb-selected' : 'ik-thumb'} loading="lazy" onClick={() => toggleSelect(image.fileId)} onDoubleClick={() => openPreview(image)} />
                       ) : (
-                        <div
-                          className={`w-full h-48 bg-gray-100 flex items-center justify-center cursor-pointer transition-all duration-200 ${selectedIds.has(image.fileId) ? 'ring-2 ring-blue-400 shadow-lg' : 'shadow-md'}`}
-                          onClick={() => toggleSelect(image.fileId)}
-                          onDoubleClick={() => openPreview(image)}
-                        >
-                          <PlayCircle className="text-gray-600" size={36} />
-                          <span className="ml-2 text-xs text-gray-600">视频</span>
+                        <div className={selectedIds.has(image.fileId) ? 'ik-thumb ik-thumb-selected ik-thumb-placeholder ik-thumb-video' : 'ik-thumb ik-thumb-placeholder ik-thumb-video'} onClick={() => toggleSelect(image.fileId)} onDoubleClick={() => openPreview(image)}>
+                          <PlayCircle size={36} />
+                          <span className="ik-video-label">视频</span>
                         </div>
                       )
+                    ) : isImageFile(image, allowedExts) ? (
+                      <img src={image.url} alt={image.name} className={selectedIds.has(image.fileId) ? 'ik-thumb ik-thumb-selected' : 'ik-thumb'} loading="lazy" onClick={() => toggleSelect(image.fileId)} onDoubleClick={() => openPreview(image)} />
                     ) : (
-                      <img
-                        src={image.url}
-                        alt={image.name}
-                        className={`w-full h-48 object-cover cursor-pointer transition-all duration-200 ${selectedIds.has(image.fileId) ? 'ring-2 ring-blue-400 shadow-lg' : 'shadow-md'}`}
-                        loading="lazy"
-                        onClick={() => toggleSelect(image.fileId)}
-                        onDoubleClick={() => openPreview(image)}
-                      />
+                      <div className={selectedIds.has(image.fileId) ? 'ik-thumb ik-thumb-selected ik-thumb-placeholder ik-thumb-file' : 'ik-thumb ik-thumb-placeholder ik-thumb-file'} onClick={() => toggleSelect(image.fileId)} onDoubleClick={() => openPreview(image)}>
+                        <LinkIcon size={24} />
+                        <span className="ik-file-label">{formatFromName(image.name, image.url)}</span>
+                      </div>
                     )}
                     {selectedIds.has(image.fileId) && (
                       <>
-                        <div className="absolute inset-0 bg-blue-500/25 pointer-events-none" />
-                        <div className="absolute top-2 right-2 z-10">
-                          <div className="bg-blue-600 text-white rounded-full p-1.5 shadow-lg">
-                            <Check size={14} />
-                          </div>
+                        <div className="ik-overlay-selected" />
+                        <div className="ik-check">
+                          <Check size={14} />
                         </div>
                       </>
                     )}
                   </div>
-                  <div className="p-3">
-                    <p className="text-gray-800 text-sm font-medium truncate">{image.name}</p>
-                    <div className="flex items-center mt-2 text-xs text-gray-500">
-                      <span className="mr-3">{Math.round(image.size / 1024)}KB</span>
-                      <span className="mr-auto">{image.width}×{image.height}</span>
-                      <div className="relative">
+                  <div className="ik-card-body">
+                    <p className="ik-name">{image.name}</p>
+                    <div className="ik-meta">
+                      <span className="ik-space">{Math.round(image.size / 1024)}KB</span>
+                      <span className="ik-flex-grow">{image.width}×{image.height}</span>
+                      <div className="ik-menu">
                         <button
                           onClick={() => setActiveMenuId(activeMenuId === image.fileId ? null : image.fileId)}
-                          className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-gray-800 transition-colors"
+                          className="ik-menu-btn"
                           aria-label="操作"
+                          ref={activeMenuId === image.fileId ? activeMenuBtnRef : undefined}
                         >
                           <MoreVertical size={16} />
                         </button>
                         {activeMenuId === image.fileId && (
-                          <div className="absolute right-0 bottom-6 w-36 bg白色 bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                            <button onClick={() => handlePreviewLink(image)} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 text-gray-700">
+                          <div className="ik-dropdown" ref={activeMenuId === image.fileId ? activeDropdownRef : undefined}>
+                            <button onClick={() => handlePreviewLink(image)} className="ik-dropdown-item">
                               <ExternalLink size={14} /> 链接预览
                             </button>
-                            <button onClick={() => handleCopy(image)} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 text-gray-700">
+                            <button onClick={() => handleCopy(image)} className="ik-dropdown-item">
                               <Copy size={14} /> 复制链接
                             </button>
                             {enableDelete && (
-                              <button onClick={() => handleDelete(image)} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-red-50 text-red-600">
+                              <button onClick={() => handleDelete(image)} className="ik-dropdown-item ik-dropdown-danger">
                                 <Trash2 size={14} /> 删除
                               </button>
                             )}
@@ -321,14 +508,26 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = ({
               ))}
             </div>
           )}
+
+          {!loading && !error && (
+            <>
+              {loadingMore && <div className="ik-list-status">加载中...</div>}
+              {!loadingMore && hasMore && (
+                <div className="ik-load-more-area">
+                  <button className="ik-btn" onClick={loadMore}>加载更多</button>
+                </div>
+              )}
+              {!hasMore && images.length > 0 && <div className="ik-list-status">已加载全部</div>}
+            </>
+          )}
         </div>
       </div>
 
       {/* 底部操作条 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-10 p-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-end gap-3">
-          <button onClick={() => onOpenChange?.(false)} className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">取消</button>
-          <button onClick={confirm} className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">确定</button>
+      <div className="ik-footer">
+        <div className="ik-footer-inner">
+          <button onClick={() => onOpenChange?.(false)} className="ik-btn">取消</button>
+          <button onClick={confirm} className="ik-btn-primary">确定</button>
         </div>
       </div>
     </div>

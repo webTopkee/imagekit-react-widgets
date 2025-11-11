@@ -16,7 +16,9 @@ export interface ResourceCenterProps {
   onError?: (message: string) => void
 
   /** ImageKit REST list endpoint, e.g. https://api.imagekit.io/v1/files */
-  listEndpoint: string
+  listEndpoint?: string
+  /** Optional folder path to filter listing, e.g. "/products/2024" */
+  folderPath?: string
   /** ImageKit upload endpoint, e.g. https://upload.imagekit.io/api/v1/files/upload */
   uploadEndpoint: string
   /** Basic auth private key for ImageKit */
@@ -42,4 +44,7 @@ export interface ResourceCenterProps {
   multiSelect?: boolean
   /** UI theme: 'light' | 'dark' */
   theme?: 'light' | 'dark'
+
+  /** Custom title text. If provided, overrides default title. */
+  title?: string
 }

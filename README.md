@@ -1,6 +1,6 @@
 # imagekit-react-widgets
 
-A reusable React component library for an image/video resource center. It supports ImageKit file listing, upload, selection, multi-select confirmation, preview (images and videos), and can be used within a modal dialog.
+A reusable React component library for an image/video Resource Center. It supports ImageKit listing, uploading, selection, multi-select confirmation, preview (images and videos), and can be used in a modal.
 
 [English](./README.md)  [中文](./README.zh-CN.md)
 
@@ -9,13 +9,14 @@ A reusable React component library for an image/video resource center. It suppor
 ```bash
 npm install imagekit-react-widgets
 # or
-pnpm add imagekit-react-widgets
+yarn add imagekit-react-widgets
 ```
 
 ## Quick Start
 
 ```tsx
 import { ResourceCenter } from 'imagekit-react-widgets'
+import 'imagekit-react-widgets/dist/index.css'
 
 function Demo() {
   const [open, setOpen] = useState(false)
@@ -28,7 +29,7 @@ function Demo() {
         onOpenChange={setOpen}
         listEndpoint="https://api.imagekit.io/v1/files"
         uploadEndpoint="https://upload.imagekit.io/api/v1/files/upload"
-        privateKey={process.env.IMAGEKIT_PRIVATE_KEY!}
+        privateKey={IMAGEKIT_PRIVATE_KEY}
         onConfirm={(files) => {
           console.log('Selected', files)
         }}
@@ -38,24 +39,27 @@ function Demo() {
 }
 ```
 
-## API
+## API Docs
 
 - `open`: whether the modal is open, default `false`
-- `onOpenChange(open)`: callback when modal open state changes
-- `onConfirm(files)`: selection confirmation callback, returns `ImageKitFile[]`
+- `onOpenChange(open)`: modal open/close callback
+- `onConfirm(files)`: selection confirm callback, returns `ImageKitFile[]`
 - `onError(message)`: error callback
 - `listEndpoint`: ImageKit list endpoint, e.g. `https://api.imagekit.io/v1/files`
+- `folderPath?`: only show resources under a specific folder, e.g. `"/products/2024"`
+  - If `folderPath` is provided, the list endpoint (default or custom) is auto-appended with `path` unless it already contains `path`
 - `uploadEndpoint`: ImageKit upload endpoint, e.g. `https://upload.imagekit.io/api/v1/files/upload`
-- `privateKey`: ImageKit private key (Basic Auth). Inject via secure mechanisms
+- `privateKey`: ImageKit private key (Basic Auth), inject securely
 - `uploadFolder?`: upload target directory, e.g. `/assets`
-- `uploadTags?`: array of tags to attach on upload
+  - Default behavior: if `folderPath` is provided and `uploadFolder` is not explicitly set, uploads will go to the folder indicated by `folderPath` (e.g. `folderPath="/css"` uploads into `/css`). If you explicitly set `uploadFolder`, your value takes precedence.
+- `uploadTags?`: tags array to attach on upload
 - `maxFileSize?`: max file size (default 10MB)
 - `allowedTypes?`: allowed MIME types (default images only)
-- `allowedExts?`: allowed file extensions (default images only)
-- `enableDelete?`: whether to show delete action, default `true`
-- `enableUpload?`: whether upload is allowed, default `true`
-- `multiSelect?`: whether multi-select is allowed, default `true`
-- `theme?`: theme, `light | dark` (currently mainly light styles)
+- `allowedExts?`: allowed extensions (default images only)
+- `enableDelete?`: show delete action, default `true`
+- `enableUpload?`: allow uploading, default `true`
+- `multiSelect?`: allow multi-select, default `true`
+- `title?`: custom top header text
 
 ### ImageKitFile Type
 
@@ -71,16 +75,6 @@ interface ImageKitFile {
   createdAt: string
 }
 ```
-
-## Environment Variables
-
-Create a `.env` file at the project root and set:
-
-```
-VITE_IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key_here
-```
-
-Note: Do not commit real private keys to version control. Use `.env.example` as a template for local development, or set environment variables on your deployment platform.
 
 ## Changelog
 
