@@ -35,6 +35,10 @@ All notable changes to this project will be documented in this file.
 - 新增：`ResourceCenter` 支持自定义标题 `title`（传入则覆盖默认）。
 - 文档：README（中/英）补充“自定义标题”示例与参数说明；移除 `titleLocale` 说明。
 
+## 0.1.7
+
+- Fix: 上传成功后列表未即时刷新。统一在单/批量上传成功后主动调用列表刷新，并为列表请求添加防缓存参数，确保最新文件出现在首屏。
+
 ## 0.1.6
 
 - 新增：`folderPath` 可选参数，用于只展示某个文件夹下的资源（例如 `"/products/2024"`）。

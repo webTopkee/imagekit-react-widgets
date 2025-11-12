@@ -60,6 +60,7 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = (props) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [previewImage, setPreviewImage] = useState<ImageKitFile | null>(null)
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   // refs to support closing "more" dropdown on outside click
   const activeMenuBtnRef = useRef<HTMLButtonElement | null>(null)
@@ -69,6 +70,8 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = (props) => {
   const [uploadSelections, setUploadSelections] = useState<File[]>([])
   const [uploadProgressMap, setUploadProgressMap] = useState<Record<string, number>>({})
   const getFileKey = (file: File) => `${file.name}_${file.size}_${file.lastModified}`
+  // helper: small delay
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
   const fetchImages = async (append = false) => {
     if (!append) setLoading(true)
@@ -82,7 +85,8 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = (props) => {
       const sepBase = baseList.includes('?') ? '&' : '?'
       const hasPathParam = /[?&]path=/.test(baseList)
       const pathPart = folderPath && !hasPathParam ? `path=${encodeURIComponent(folderPath)}&` : ''
-      const url = `${baseList}${sepBase}${pathPart}skip=${skip}&limit=${pageSize}&sort=DESC_CREATED`
+      // Add cache-busting to ensure latest list after uploads
+      const url = `${baseList}${sepBase}${pathPart}skip=${skip}&limit=${pageSize}&sort=DESC_CREATED&cb=${Date.now()}`
       const response = await fetch(url, {
         method: 'GET',
         headers: { 'Authorization': `Basic ${btoa(privateKey + ':')}`, 'Content-Type': 'application/json' }
@@ -109,7 +113,18 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = (props) => {
     }
   }
 
-  useEffect(() => { if (open) { setImages([]); setHasMore(true); fetchImages(false) } }, [open])
+  useEffect(() => {
+    if (open) {
+      // 重新打开资源中心时清空之前的选择
+      setSelectedIds(new Set())
+      setActiveMenuId(null)
+      setPreviewImage(null)
+      // 重置列表并重新拉取
+      setImages([])
+      setHasMore(true)
+      fetchImages(false)
+    }
+  }, [open])
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget
@@ -176,6 +191,8 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = (props) => {
         try { const j = await response.json(); msg = j.message || msg } catch {}
         throw new Error(msg)
       }
+      // 延迟 1500ms 后刷新列表（只刷新一次）
+      await delay(1500)
       await fetchImages(false)
     } catch (err) {
       const msg = err instanceof Error ? `上传失败：${err.message}` : '上传失败'
@@ -239,6 +256,8 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = (props) => {
         await uploadFileXHR(file)
       }
       // all done
+      // 上传全部完成后延迟 3500ms 关闭上传窗口，并刷新列表（只刷新一次）
+      await delay(3500)
       setShowUploadModal(false)
       setUploadSelections([])
       setUploadProgressMap({})
@@ -369,12 +388,26 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = (props) => {
               <X size={20} />
             </button>
             {isVideoFile(previewImage) ? (
-              previewImage.thumbnailUrl ? (
-                <img src={previewImage.thumbnailUrl} alt={previewImage.name} className="ik-preview-img" />
+              previewImage.url ? (
+                <video
+                  ref={previewVideoRef}
+                  className="ik-preview-video"
+                  src={previewImage.url}
+                  controls
+                  autoPlay
+                  muted
+                  onDoubleClick={() => {
+                    const v = previewVideoRef.current
+                    if (v) {
+                      if (v.paused) v.play().catch(() => {})
+                      else v.pause()
+                    }
+                  }}
+                />
               ) : (
                 <div className="ik-preview-placeholder">
                   <PlayCircle size={42} />
-                  <span>该文件为视频</span>
+                  <span>该视频无法预览</span>
                 </div>
               )
             ) : isImageFile(previewImage, allowedExts) ? (
@@ -393,12 +426,6 @@ export const ResourceCenter: React.FC<ResourceCenterProps> = (props) => {
         <div className="ik-topbar-inner">
           <h1 className="ik-title">{title ?? '资源中心'}</h1>
           <div className="ik-actions">
-            {uploading && (
-              <div className="ik-loading-inline">
-                <Loader2 className="ik-icon-spin" size={16} />
-                <span>上传中{uploadProgress ? ` ${uploadProgress}%` : ''}</span>
-              </div>
-            )}
             {enableUpload && (
               <button onClick={handleUploadClick} className="ik-btn">上传</button>
             )}

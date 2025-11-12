@@ -157,7 +157,9 @@
 /* Image preview overlay */
 .ik-preview-box { position: relative; max-width: min(92vw, 1200px); max-height: 90vh; background: rgba(255,255,255,0.96); border: 1px solid #E5E7EB; border-radius: 14px; box-shadow: 0 18px 32px rgba(17,24,39,0.16); padding: 12px; display: flex; align-items: center; justify-content: center; backdrop-filter: saturate(160%) blur(8px); -webkit-backdrop-filter: saturate(160%) blur(8px); }
 .ik-preview-img { max-width: 100%; max-height: 82vh; border-radius: 12px; box-shadow: 0 12px 24px rgba(0,0,0,0.18); }
-.ik-preview-close { position: absolute; top: 8px; right: 8px; }
+.ik-preview-close { position: absolute; top: 8px; right: 8px; background: #FFFFFF; color: #111827; box-shadow: 0 6px 12px rgba(17,24,39,0.08); border: 1px solid #E5E7EB; z-index: 100; pointer-events: auto; }
+.ik-preview-close:hover { background: #FFFFFF; color: #111827; box-shadow: 0 8px 16px rgba(17,24,39,0.10); }
+.ik-preview-video { position: relative; z-index: 1; max-width: 100%; max-height: 82vh; border-radius: 12px; box-shadow: 0 12px 24px rgba(0,0,0,0.18); background: #000; }
 .ik-preview-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #374151; gap: 8px; }
 .ik-dropdown-danger { color: #DC2626; }
 .ik-dropdown-danger:hover { background: #FEF2F2; }
@@ -176,11 +178,11 @@
 .ik-list-status { text-align: center; color: #6B7280; font-size: 0.875rem; margin: 8px 0 12px; }
 
 /* Upload modal */
-.ik-upload-list { max-height: 360px; overflow: auto; margin-top: 8px; }
-.ik-upload-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 14px; background: var(--ik-card-bg); backdrop-filter: saturate(150%) blur(6px); -webkit-backdrop-filter: saturate(150%) blur(6px); border: 1px solid var(--ik-card-border); box-shadow: var(--ik-shadow); }
+.ik-upload-list { max-height: 360px; overflow-y: auto; overflow-x: hidden; margin-top: 8px; }
+.ik-upload-item { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 14px; background: var(--ik-card-bg); backdrop-filter: saturate(150%) blur(6px); -webkit-backdrop-filter: saturate(150%) blur(6px); border: 1px solid var(--ik-card-border); box-shadow: var(--ik-shadow); }
 .ik-upload-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; }
-.ik-upload-info { flex: 1; display: grid; gap: 4px; }
-.ik-upload-name { font-size: 0.9rem; color: #111827; }
+.ik-upload-info { flex: 1; display: grid; gap: 4px; min-width: 0; }
+.ik-upload-name { font-size: 0.9rem; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ik-upload-meta { font-size: 0.8rem; color: #6B7280; }
 .ik-upload-progress { margin-top: 2px; }
 .ik-load-more-area { text-align: center; margin: 12px 0; }

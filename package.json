@@ -1,7 +1,7 @@
 {
   "name": "imagekit-react-widgets",
   "private": false,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -81,7 +81,7 @@
   "homepage": "https://github.com/webTopkee/imagekit-react-widgets",
   "repository": {
     "type": "git",
-    "url": "https://github.com/webTopkee/imagekit-react-widgets"
+    "url": "git+https://github.com/webTopkee/imagekit-react-widgets.git"
   },
   "author": "weber",
   "license": "MIT"
